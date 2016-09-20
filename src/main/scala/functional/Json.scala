@@ -6,7 +6,7 @@ import scala.util.matching.Regex.Match
 
 case class Json(private val data: Map[String, Any]) {
   def apply(key: String): Option[Any] =
-    if (data.contains(key)) data(key).some else None
+    data.contains(key).option(data(key))
 
   override def toString: String =
     data.mkString("{\n", "\n", "\n}")
@@ -19,17 +19,17 @@ object Json {
   type Converters = Map[String, Converter[_]]
   type Parser[A, B] = State[A] => Option[State[B]]
 
-  def parse(json: JsonString)(implicit converters: Converters = Map()): Option[Json] =
+  def parse(jsonText: JsonString)(implicit converters: Converters = Map()): Option[Json] =
     for {
-      s1 <- Option(json)
-      s2 <- obj(State(s1, Map()))
-    } yield Json(s2.data)
+      json <- Option(jsonText)
+      state <- obj(State(json))
+    } yield Json(state.data)
 
   private def expr(state: State[Any])(implicit converters: Converters): Option[State[Any]] =
     text(state) orElse arr(state) orElse obj(state)
 
   private def text(state: State[Any])(implicit converters: Converters): Option[State[String]] =
-    quoted(state).map { v => state.advance(v.group(0).length, v.group(1)) }
+    quoted(state).map { text => state.advance(text.group(0).length, text.group(1)) }
 
   def quoted(state: State[Any]): Option[Match] =
     """^"(.+?)"""".r.findFirstMatchIn(state.jsonLeft)
@@ -46,7 +46,7 @@ object Json {
       s1 <- symbol("{", state)
       s2 <- repeat(tuple, s1, ",")
       s3 <- symbol("}", s2)
-    } yield s3.newData(s3.data.toMap)
+    } yield s3.mapData { _.toMap }
 
   private def repeat[B <: Any](parser: Parser[Any, B], state: State[Any], separator: String)(implicit converters: Converters): Option[State[List[B]]] = {
     val first = parser(state)
@@ -57,8 +57,8 @@ object Json {
           s1 <- first
           s2 <- symbol(separator, s1)
           s3 <- repeat(parser, s2, separator)
-        } yield s3.newData(s1.data +: s3.data)
-    } orElse first.map { s => s.newData(List(s.data)) }
+        } yield s3.mapData { s1.data +: _ }
+    } orElse first.map { _.mapData { List(_) } }
   }
 
   private def tuple(state: State[Any])(implicit converters: Converters): Option[State[(String, Any)]] =
@@ -66,12 +66,12 @@ object Json {
       s1 <- text(state)
       s2 <- symbol(":", s1)
       s3 <- expr(s2)
-    } yield s3.newData(s1.data -> s3.data)
+    } yield s3.mapData(s1.data -> _)
 
   def symbol[A](symbol: String, state: State[A]): Option[State[A]] =
-    state.jsonLeft.startsWith(symbol) ? state.advance(1).some | None
+    state.jsonLeft.startsWith(symbol).option(state.advance(1))
 
-  case class State[+T](jsonLeft: JsonString, data: T) {
+  case class State[+T](jsonLeft: JsonString, data: T = null) {
     def advance(chars: Int) =
       State(jsonLeft.substring(chars), data)
 
@@ -80,6 +80,9 @@ object Json {
 
     def newData[U](newData: U) =
       State(jsonLeft, newData)
+
+    def mapData[U](f: T => U) =
+      State(jsonLeft, f(data))
   }
 
   def toJson(state: State[Map[String, Any]]): Json = new Json(state.data)
