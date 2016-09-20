@@ -15,57 +15,56 @@ case class Json(private val data: Map[String, Any]) {
 object Json {
   type Error = String
   type JsonString = String
-  type Parser[A, B] = State[A] => Option[State[B]]
+  type ElementParser[A, B] = State[A] => Option[State[B]]
 
-  def parse(jsonText: JsonString)(implicit converters: Converter = new Converter()): Option[Json] =
+  def parse(jsonText: JsonString)(implicit converter: Converter = new Converter()): Option[Json] =
     for {
       json <- Option(jsonText)
-      state <- obj(State(json))
-    } yield Json(state.data)
+      objState <- obj(State(json))
+    } yield Json(objState.data)
 
-  private def expr(state: State[Any])(implicit converters: Converter): Option[State[Any]] =
-    text(state) orElse arr(state) orElse obj(state)
+  private def expr(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
+    value(state) orElse arr(state) orElse obj(state)
 
-  private def text[B](state: State[Any])(implicit converters: Converter): Option[State[B]] =
-    quoted(state).map { text => state.advance(text.group(0).length, converters.convert(text.group(1))) }
+  private def value[B](state: State[Any])(implicit converter: Converter): Option[State[B]] =
+    quoted(state).map { text => state.advance(text.group(0).length, converter.convert(text.group(1))) }
 
   def quoted(state: State[Any]): Option[Match] =
     """^"(.+?)"""".r.findFirstMatchIn(state.jsonLeft)
 
-  private def arr(state: State[Any])(implicit converters: Converter): Option[State[List[Any]]] =
+  private def arr(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
     for {
-      s1 <- symbol("[", state)
-      s2 <- repeat(expr, s1, ",")
-      s3 <- symbol("]", s2)
-    } yield s3
+      openBracketState <- symbol("[", state)
+      elementsState <- repeat(expr, openBracketState, ",")
+      closeBracketState <- symbol("]", elementsState)
+    } yield closeBracketState
 
-  private def obj(state: State[Any])(implicit converters: Converter): Option[State[Map[String, Any]]] =
+  private def obj(state: State[Any])(implicit converter: Converter): Option[State[Map[String, Any]]] =
     for {
-      s1 <- symbol("{", state)
-      s2 <- repeat(tuple, s1, ",")
-      s3 <- symbol("}", s2)
-    } yield s3.mapData { _.toMap }
+      openBraceState <- symbol("{", state)
+      elementsState <- repeat(tuple, openBraceState, ",")
+      closeBraceState <- symbol("}", elementsState)
+    } yield closeBraceState.mapData { _.toMap }
 
-  private def repeat[B <: Any](parser: Parser[Any, B], state: State[Any], separator: String)(implicit converters: Converter): Option[State[List[B]]] = {
-    val first = parser(state)
-    if (first.isEmpty)
+  private def repeat[B <: Any](parser: ElementParser[Any, B], state: State[Any], separator: String)(implicit converter: Converter): Option[State[List[B]]] = {
+    val firstElementStateOption = parser(state)
+    if (firstElementStateOption.isEmpty)
       state.newData(List()).some
     else {
       for {
-          s1 <- first
-          s2 <- symbol(separator, s1)
-          s3 <- repeat(parser, s2, separator)
-        } yield s3.mapData { s1.data +: _ }
-    } orElse first.map { _.mapData { List(_) } }
+          firstElementState <- firstElementStateOption
+          separatorState <- symbol(separator, firstElementState)
+          restElementsState <- repeat(parser, separatorState, separator)
+        } yield restElementsState.mapData { firstElementState.data +: _ }
+    } orElse firstElementStateOption.map { _.mapData { List(_) } }
   }
 
-  private def tuple(state: State[Any])(implicit converters: Converter): Option[State[(String, Any)]] =
+  private def tuple(state: State[Any])(implicit converter: Converter): Option[State[(String, Any)]] =
     for {
-      s1 <- text[String](state)
-      s2 <- symbol(":", s1)
-      converters2 = converters.withDefault(s1.data)
-      s3 <- expr(s2)(converters2)
-    } yield s3.mapData(s1.data -> _)
+      firstState <- value[String](state)
+      colonState <- symbol(":", firstState)
+      secondState <- expr(colonState)(converter.withDefault(firstState.data))
+    } yield secondState.mapData(firstState.data -> _)
 
   def symbol[A](symbol: String, state: State[A]): Option[State[A]] =
     state.jsonLeft.startsWith(symbol).option(state.advance(1))
