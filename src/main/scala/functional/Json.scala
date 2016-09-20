@@ -20,7 +20,7 @@ object Json {
 
   def parse(json: JsonString)(implicit converters: Converters = Map()): Xor[Error, Json] =
     if (json != null && !json.isEmpty)
-      obj(State(json, Map())).map(data => new Json(data.data.asInstanceOf[Map[String, Any]]))
+      obj(State(json, Map())).map(state => new Json(state.data))
     else
       Left("Empty json")
 
@@ -66,7 +66,7 @@ object Json {
         s1 <- first
         s2 <- symbol(separator, s1)
         s3 <- repeat(parser, s2, separator)
-      } yield State(s3.jsonLeft, first.toOption.get.data +: s3.data.asInstanceOf[List[Any]])
+      } yield State(s3.jsonLeft, first.toOption.get.data +: s3.data)
       if (s4.isRight) s4 else Right(State(first.toOption.get.jsonLeft, List(first.toOption.get.data)))
     }
   }
