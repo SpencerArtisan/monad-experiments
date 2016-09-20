@@ -2,8 +2,9 @@ package functional
 
 import scalaz._
 import Scalaz._
+import scala.util.matching.Regex.Match
 
-class Json(private val data: Map[String, Any]) {
+case class Json(private val data: Map[String, Any]) {
   def apply(key: String): Option[Any] =
     if (data.contains(key)) data(key).some else None
 
@@ -19,23 +20,19 @@ object Json {
   type Parser[A, B] = State[A] => Option[State[B]]
 
   def parse(json: JsonString)(implicit converters: Converters = Map()): Option[Json] =
-    if (json != null && !json.isEmpty)
-      obj(State(json, Map())).map(state => new Json(state.data))
-    else
-      None
+    for {
+      s1 <- Option(json)
+      s2 <- obj(State(s1, Map()))
+    } yield Json(s2.data)
 
   private def expr(state: State[Any])(implicit converters: Converters): Option[State[Any]] =
     text(state) orElse arr(state) orElse obj(state)
 
-  private def text(state: State[Any])(implicit converters: Converters): Option[State[String]] = {
-    val option = """^"(.+?)"""".r.findFirstMatchIn(state.jsonLeft)
-    if (option.isDefined) {
-      val valueString = option.get.group(1)
-//      val value = converter(valueString)
-      State(state.jsonLeft.substring(option.get.group(0).length), valueString).some
-    } else
-      None
-  }
+  private def text(state: State[Any])(implicit converters: Converters): Option[State[String]] =
+    quoted(state).map { v => state.advance(v.group(0).length, v.group(1)) }
+
+  def quoted(state: State[Any]): Option[Match] =
+    """^"(.+?)"""".r.findFirstMatchIn(state.jsonLeft)
 
   private def arr(state: State[Any])(implicit converters: Converters): Option[State[List[Any]]] =
     for {
@@ -49,19 +46,19 @@ object Json {
       s1 <- symbol("{", state)
       s2 <- repeat(tuple, s1, ",")
       s3 <- symbol("}", s2)
-    } yield State(s3.jsonLeft, s3.data.toMap)
+    } yield s3.newData(s3.data.toMap)
 
   private def repeat[B <: Any](parser: Parser[Any, B], state: State[Any], separator: String)(implicit converters: Converters): Option[State[List[B]]] = {
     val first = parser(state)
     if (first.isEmpty)
-      State(state.jsonLeft, List()).some
+      state.newData(List()).some
     else {
       for {
           s1 <- first
           s2 <- symbol(separator, s1)
           s3 <- repeat(parser, s2, separator)
-        } yield State(s3.jsonLeft, first.get.data +: s3.data)
-    } orElse first.map { s => State(s.jsonLeft, List(s.data)) }
+        } yield s3.newData(s1.data +: s3.data)
+    } orElse first.map { s => s.newData(List(s.data)) }
   }
 
   private def tuple(state: State[Any])(implicit converters: Converters): Option[State[(String, Any)]] =
@@ -69,16 +66,10 @@ object Json {
       s1 <- text(state)
       s2 <- symbol(":", s1)
       s3 <- expr(s2)
-    } yield State(s3.jsonLeft, s1.data -> s3.data)
+    } yield s3.newData(s1.data -> s3.data)
 
   def symbol[A](symbol: String, state: State[A]): Option[State[A]] =
-    if (state.jsonLeft.startsWith(symbol))
-      state.advance(1).some
-    else
-      None
-
-  private def truncate(text: String) =
-    text.substring(0, Math.min(text.length(), 30))
+    state.jsonLeft.startsWith(symbol) ? state.advance(1).some | None
 
   case class State[+T](jsonLeft: JsonString, data: T) {
     def advance(chars: Int) =
@@ -86,7 +77,12 @@ object Json {
 
     def advance[U](chars: Int, newData: U) =
       State(jsonLeft.substring(chars), newData)
+
+    def newData[U](newData: U) =
+      State(jsonLeft, newData)
   }
+
+  def toJson(state: State[Map[String, Any]]): Json = new Json(state.data)
 }
 
 
