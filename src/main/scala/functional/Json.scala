@@ -13,7 +13,6 @@ case class Json(private val data: Map[String, Any]) {
 }
 
 object Json {
-  type Error = String
   type JsonString = String
   type ElementParser[A, B] = State[A] => Option[State[B]]
 
@@ -29,7 +28,7 @@ object Json {
   private def value[B](state: State[Any])(implicit converter: Converter): Option[State[B]] =
     quoted(state).map { text => state.advance(text.group(0).length, converter.convert(text.group(1))) }
 
-  def quoted(state: State[Any]): Option[Match] =
+  private def quoted(state: State[Any]): Option[Match] =
     """^"(.+?)"""".r.findFirstMatchIn(state.jsonLeft)
 
   private def arr(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
@@ -52,10 +51,10 @@ object Json {
       state.newData(List()).some
     else {
       for {
-          firstElementState <- firstElementStateOption
-          separatorState <- symbol(separator, firstElementState)
-          restElementsState <- repeat(parser, separatorState, separator)
-        } yield restElementsState.mapData { firstElementState.data +: _ }
+        firstElementState <- firstElementStateOption
+        separatorState <- symbol(separator, firstElementState)
+        restElementsState <- repeat(parser, separatorState, separator)
+      } yield restElementsState.mapData { firstElementState.data +: _ }
     } orElse firstElementStateOption.map { _.mapData { List(_) } }
   }
 
@@ -66,7 +65,7 @@ object Json {
       secondState <- expr(colonState)(converter.withDefault(firstState.data))
     } yield secondState.mapData(firstState.data -> _)
 
-  def symbol[A](symbol: String, state: State[A]): Option[State[A]] =
+  private def symbol[A](symbol: String, state: State[A]): Option[State[A]] =
     state.jsonLeft.startsWith(symbol).option(state.advance(1))
 
   case class State[+T](jsonLeft: JsonString, data: T = null) {
