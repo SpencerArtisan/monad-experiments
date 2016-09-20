@@ -2,7 +2,6 @@ package functional
 
 import org.scalatest._
 import org.scalatest.mockito.MockitoSugar
-
 import functional.Json._
 
 class JsonTest extends FunSpec with Inside with Matchers with MockitoSugar {
@@ -67,12 +66,12 @@ class JsonTest extends FunSpec with Inside with Matchers with MockitoSugar {
   }
 
   it("should use a custom value converter") {
-    val json = Json.parse("""{"key":"42"}""")(Map("key" -> ((s:String) => s.toInt)))
+    val json = Json.parse("""{"key":"42"}""")(new Converter(Map("key" -> ((s:String) => s.toInt))))
     json.get("key") should be (Some(42))
   }
 
   it("should use a custom value converter 2") {
-    val json = Json.parse("""{"key":"hello"}""")(Map("key" -> ((s:String) => s.toUpperCase)))
+    val json = Json.parse("""{"key":"hello"}""")(new Converter(Map("key" -> ((s:String) => s.toUpperCase))))
     json.get("key") should be (Some("HELLO"))
   }
 }
