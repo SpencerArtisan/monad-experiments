@@ -35,12 +35,17 @@ class JsonTest extends FunSpec with Inside with Matchers with MockitoSugar {
 
   it("should parse json array with empty object") {
     val json = Json.parse("""{"key":[{}]}""")
-    json.toOption.get("key").get should be (Some(Map()))
+    json.toOption.get("key").get should be (List(Map()))
   }
 
-  it("should parse json array with non-empty object") {
+  it("should parse json array with non-empty values") {
+    val json = Json.parse("""{"key":["1"]}""")
+    json.toOption.get("key").get should be (List("1"))
+  }
+
+  it("should parse json array with non-empty objects") {
     val json = Json.parse("""{"key":[{"key2":"value"}]}""")
-    json.toOption.get("key").get should be (Some(Map("key2" -> "value")))
+    json.toOption.get("key").get should be (List(Map("key2" -> "value")))
   }
 
   it("should parse json value with spaces") {
@@ -50,8 +55,8 @@ class JsonTest extends FunSpec with Inside with Matchers with MockitoSugar {
 
   it("should parse two json values") {
     val json = Json.parse("""{"key1":"value1","key2":"value2"}""")
-    json.toOption.get.apply("key1") should be (Some("value1"))
-    json.toOption.get.apply("key2") should be (Some("value2"))
+    json.toOption.get("key1") should be (Some("value1"))
+    json.toOption.get("key2") should be (Some("value2"))
   }
 
   it("should parse multiple json values") {
