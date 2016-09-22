@@ -47,6 +47,11 @@ class JsonTest extends FunSpec with Inside with Matchers with MockitoSugar {
     json > "key" should be (Json(Some(List(Map("key2" -> "value")))))
   }
 
+  it("should parse json with whitespace") {
+    val json = Json.parse("""{  "key": [ { "key2" : "value" } ] }""")
+    json > "key" should be (Json(Some(List(Map("key2" -> "value")))))
+  }
+
   it("should parse json value with spaces") {
     val json = Json.parse("""{"key":"a value"}""")
     json > "key" should be (Json(Some("a value")))

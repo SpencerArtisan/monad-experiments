@@ -58,7 +58,7 @@ object Json {
   }
 
   private def quoted(state: State[Any]): Option[Match] =
-    """^"(.+?)"""".r.findFirstMatchIn(state.jsonLeft)
+    """^"(.+?)"""".r.findFirstMatchIn(state.json)
 
   private def tuple(state: State[Any])(implicit converter: Converter): Option[State[(String, Any)]] =
     for {
@@ -68,20 +68,22 @@ object Json {
     } yield secondState.mapData(firstState.data -> _)
 
   private def symbol[A](symbol: String, state: State[A]): Option[State[A]] =
-    state.jsonLeft.startsWith(symbol).option(state.advance(1))
+    state.json.startsWith(symbol).option(state.advance(symbol.length))
 
-  case class State[+T](jsonLeft: JsonString, data: T = null) {
+  case class State[+T](private val jsonLeft: JsonString, data: T = null) {
+    val json = jsonLeft.replaceAll("^\\s+", "")
+
     def advance(chars: Int) =
-      State(jsonLeft.substring(chars), data)
+      State(json.substring(chars), data)
 
     def advance[U](chars: Int, newData: U) =
-      State(jsonLeft.substring(chars), newData)
+      State(json.substring(chars), newData)
 
     def newData[U](newData: U) =
-      State(jsonLeft, newData)
+      State(json, newData)
 
     def mapData[U](f: T => U) =
-      State(jsonLeft, f(data))
+      State(json, f(data))
   }
 
   class Converter(converters: Map[String, String => Any] = Map(), defaultConverter: String => Any = _.toString) {
@@ -89,7 +91,6 @@ object Json {
     def withDefault(f: String => Any) = new Converter(converters, f)
     def withDefault(key: String) = converters.contains(key) ? new Converter(converters, converters(key)) | this
   }
-
 }
 
 
