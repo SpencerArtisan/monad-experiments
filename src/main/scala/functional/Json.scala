@@ -63,11 +63,7 @@ object Json {
   private def tuple(state: State[Any])(implicit converter: Converter): Option[State[(String, Any)]] =
     for {
       firstState <- value[String](state)
-      colonState <- symbol(":", firstSt
-    private def tuple(state: State[Any])(implicit converter: Converter): Option[State[(String, Any)]] =
-    for {
-    firstState <- value[String](state)
-    colonState <- symbol(":", firstState)
+      colonState <- symbol(":", firstState)
       secondState <- expr(colonState)(converter.withDefault(firstState.data))
     } yield secondState.mapData(firstState.data -> _)
 
