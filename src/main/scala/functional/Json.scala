@@ -4,32 +4,31 @@ import scalaz._
 import Scalaz._
 import scala.util.matching.Regex.Match
 
-case class Json(private val data: Map[String, Any]) {
-  def apply(key: String): Option[Any] =
-    data.contains(key).option(data(key))
+case class Json(data: Option[Any]) {
+  def >(key: String): Json =
+    Json(data flatMap { _.asInstanceOf[Map[String, Any]].get(key) })
 
-  override def toString: String =
-    data.mkString("{\n", "\n", "\n}")
+  def >(index: Int): Json =
+    Json(data flatMap { _.asInstanceOf[List[Any]].lift(index) })
 }
 
 object Json {
   type JsonString = String
   type ElementParser[A, B] = State[A] => Option[State[B]]
 
-  def parse(jsonText: JsonString)(implicit converter: Converter = new Converter()): Option[Json] =
-    for {
+  implicit def jsonToOption[T](json: Json): Option[T] = json.data map { _.asInstanceOf[T] }
+
+  def parse(jsonText: JsonString)(implicit converter: Converter = new Converter()): Json =
+    Json(for {
       json <- Option(jsonText)
-      objState <- obj(State(json))
-    } yield Json(objState.data)
+      objState <- expr(State(json))
+    } yield objState.data)
 
   private def expr(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
     value(state) orElse arr(state) orElse obj(state)
 
   private def value[B](state: State[Any])(implicit converter: Converter): Option[State[B]] =
     quoted(state).map { text => state.advance(text.group(0).length, converter.convert(text.group(1))) }
-
-  private def quoted(state: State[Any]): Option[Match] =
-    """^"(.+?)"""".r.findFirstMatchIn(state.jsonLeft)
 
   private def arr(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
     for {
@@ -58,10 +57,17 @@ object Json {
     } orElse firstElementStateOption.map { _.mapData { List(_) } }
   }
 
+  private def quoted(state: State[Any]): Option[Match] =
+    """^"(.+?)"""".r.findFirstMatchIn(state.jsonLeft)
+
   private def tuple(state: State[Any])(implicit converter: Converter): Option[State[(String, Any)]] =
     for {
       firstState <- value[String](state)
-      colonState <- symbol(":", firstState)
+      colonState <- symbol(":", firstSt
+    private def tuple(state: State[Any])(implicit converter: Converter): Option[State[(String, Any)]] =
+    for {
+    firstState <- value[String](state)
+    colonState <- symbol(":", firstState)
       secondState <- expr(colonState)(converter.withDefault(firstState.data))
     } yield secondState.mapData(firstState.data -> _)
 
@@ -88,7 +94,6 @@ object Json {
     def withDefault(key: String) = converters.contains(key) ? new Converter(converters, converters(key)) | this
   }
 
-  def toJson(state: State[Map[String, Any]]): Json = new Json(state.data)
 }
 
 
