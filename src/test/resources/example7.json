@@ -1,0 +1,203 @@
+{
+  "query_time": "0.002056031",
+  "result_count": 5,
+  "result": [
+    {
+      "id": "2da31b7175cb44c787ff93fe43c7e317",
+      "name": "Worker1",
+      "owner": {
+        "id": "f02e59a47dc9492da3e6cb7fb6b3ac25",
+        "name": "admin"
+      },
+      "type": "Worker",
+      "createdBy": "f02e59a47dc9492da3e6cb7fb6b3ac25",
+      "deleted": false,
+      "hidden": false,
+      "createdDate": "2014-12-15T17:47:12+0100",
+      "lastModifiedDate": "2014-12-15T17:47:12+0100",
+      "visibleToPublicUsers": false,
+      "visibleToAuthenticatedUsers": false,
+      "visibilityStartDate": null,
+      "visibilityEndDate": null,
+      "company": {
+        "id": "bc9de3a97bce409da5234e5976355aa9",
+        "name": "Company1"
+      },
+      "tasks": [
+        {
+          "id": "9988348105e34b1ab5d365f4e4f7262a",
+          "name": "Subtask1.1"
+        },
+        {
+          "id": "517c1a89e44f479eb0802b9045271b4c",
+          "name": "Task1"
+        }
+      ]
+    },
+    {
+      "id": "d980f56aacea4a0bb2cb8cf7b3a740d5",
+      "name": "Worker2",
+      "owner": {
+        "id": "f02e59a47dc9492da3e6cb7fb6b3ac25",
+        "name": "admin"
+      },
+      "type": "Worker",
+      "createdBy": "f02e59a47dc9492da3e6cb7fb6b3ac25",
+      "deleted": false,
+      "hidden": false,
+      "createdDate": "2014-12-15T17:47:12+0100",
+      "lastModifiedDate": "2014-12-15T17:47:12+0100",
+      "visibleToPublicUsers": false,
+      "visibleToAuthenticatedUsers": false,
+      "visibilityStartDate": null,
+      "visibilityEndDate": null,
+      "company": {
+        "id": "bc9de3a97bce409da5234e5976355aa9",
+        "name": "Company1"
+      },
+      "tasks": [
+        {
+          "id": "196189bde51a43afb587563fb47fda91",
+          "name": "Subtask1.2"
+        },
+        {
+          "id": "bd35947338924daa85b13391083551b1",
+          "name": "Subtask1.3"
+        },
+        {
+          "id": "dace6757bad94aa0a137420741406699",
+          "name": "Task2"
+        }
+      ]
+    },
+    {
+      "id": "a9a23f57b9ce4e33bcc1efbfd2537164",
+      "name": "Worker3",
+      "owner": {
+        "id": "f02e59a47dc9492da3e6cb7fb6b3ac25",
+        "name": "admin"
+      },
+      "type": "Worker",
+      "createdBy": "f02e59a47dc9492da3e6cb7fb6b3ac25",
+      "deleted": false,
+      "hidden": false,
+      "createdDate": "2014-12-15T17:47:12+0100",
+      "lastModifiedDate": "2014-12-15T17:47:12+0100",
+      "visibleToPublicUsers": false,
+      "visibleToAuthenticatedUsers": false,
+      "visibilityStartDate": null,
+      "visibilityEndDate": null,
+      "company": {
+        "id": "8fac823ef76f436c96cfc9e0c4c21fb5",
+        "name": "Company2"
+      },
+      "tasks": [
+        {
+          "id": "779b76705c9b43d598ce971024743b13",
+          "name": "Subtask1.4"
+        },
+        {
+          "id": "097729f47768469ebeaacd00ea8a442e",
+          "name": "Task3"
+        }
+      ]
+    },
+    {
+      "id": "eadcb538f90a41838f0196fd74b82037",
+      "name": "Worker4",
+      "owner": {
+        "id": "f02e59a47dc9492da3e6cb7fb6b3ac25",
+        "name": "admin"
+      },
+      "type": "Worker",
+      "createdBy": "f02e59a47dc9492da3e6cb7fb6b3ac25",
+      "deleted": false,
+      "hidden": false,
+      "createdDate": "2014-12-15T17:47:13+0100",
+      "lastModifiedDate": "2014-12-15T17:47:13+0100",
+      "visibleToPublicUsers": false,
+      "visibleToAuthenticatedUsers": false,
+      "visibilityStartDate": null,
+      "visibilityEndDate": null,
+      "company": {
+        "id": "eb34f6449d69484f93c69320fe95ea24",
+        "name": "Company3"
+      },
+      "tasks": [
+        {
+          "id": "8b2dbfcc93b94e428052ff1276991e34",
+          "name": "Subtask4.1"
+        },
+        {
+          "id": "f4b99c128cc24c518e6f9af5c3affea4",
+          "name": "Subtask4.2"
+        },
+        {
+          "id": "e6156b8b566e45349e671229ff70f9ea",
+          "name": "Subtask4.3"
+        },
+        {
+          "id": "27bfdc1bb293458eab0d912811f610da",
+          "name": "Task4"
+        },
+        {
+          "id": "5e45f0d22ee944ec84bc31aa75b40dda",
+          "name": "Subtask5.1.1"
+        },
+        {
+          "id": "2e21cad09d09423dacec07abcc763c3f",
+          "name": "Subtask5.1.2"
+        },
+        {
+          "id": "ad2e56c80ea944808b7082cdcab9f659",
+          "name": "Subtask5.1"
+        },
+        {
+          "id": "6173bc32066b40498147630d92c17990",
+          "name": "Subtask5.2.1"
+        },
+        {
+          "id": "83889c6a55f043c6bd69dc04614ff76f",
+          "name": "Subtask5.2.2"
+        },
+        {
+          "id": "e04e9f77fa444c40904b474f27bcdc61",
+          "name": "Subtask5.2"
+        }
+      ]
+    },
+    {
+      "id": "8f8bd3613aa543ecae222da22cdd2e14",
+      "name": "Worker5",
+      "owner": {
+        "id": "f02e59a47dc9492da3e6cb7fb6b3ac25",
+        "name": "admin"
+      },
+      "type": "Worker",
+      "createdBy": "f02e59a47dc9492da3e6cb7fb6b3ac25",
+      "deleted": false,
+      "hidden": false,
+      "createdDate": "2014-12-15T17:47:13+0100",
+      "lastModifiedDate": "2014-12-15T17:47:13+0100",
+      "visibleToPublicUsers": false,
+      "visibleToAuthenticatedUsers": false,
+      "visibilityStartDate": null,
+      "visibilityEndDate": null,
+      "company": {
+        "id": "eb34f6449d69484f93c69320fe95ea24",
+        "name": "Company3"
+      },
+      "tasks": [
+        {
+          "id": "7785c5445d2147578bc8831797241e53",
+          "name": "Subtask4.4"
+        },
+        {
+          "id": "b762fd8f2fe24d149d4a220412c56f49",
+          "name": "Task5"
+        }
+      ]
+    }
+  ],
+  "serialization_time": "0.000484448"
+}

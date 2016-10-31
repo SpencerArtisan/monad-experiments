@@ -1,8 +1,12 @@
 package functional
 
+import java.io.File
+
 import org.scalatest._
 import org.scalatest.mockito.MockitoSugar
 import functional.Json._
+
+import scala.io.Source
 
 class JsonTest extends FunSpec with Inside with Matchers with MockitoSugar {
   it("should not parse empty string") {
@@ -78,5 +82,38 @@ class JsonTest extends FunSpec with Inside with Matchers with MockitoSugar {
   it("should use a custom value converter 2") {
     val json = Json.parse("""{"key":"hello"}""")(new Converter(Map("key" -> ((s:String) => s.toUpperCase))))
     json > "key" should be (Json(Some("HELLO")))
+  }
+
+  it("should handle complex json 1") {
+    testFromFile("example1.json")
+  }
+
+  it("should handle complex json 2") {
+    testFromFile("example2.json")
+  }
+
+  it("should handle complex json 3") {
+    testFromFile("example3.json")
+  }
+
+  it("should handle complex json 4") {
+    testFromFile("example4.json")
+  }
+
+  it("should handle complex json 5") {
+    testFromFile("example5.json")
+  }
+
+  it("should handle complex json 6") {
+    testFromFile("example6.json")
+  }
+
+  it("should handle complex json 7") {
+    testFromFile("example7.json")
+  }
+
+  private def testFromFile(file: String) = {
+    val json = Source.fromURL(getClass.getResource("/" + file)).mkString
+    Json.parse(json)
   }
 }

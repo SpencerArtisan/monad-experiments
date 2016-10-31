@@ -71,7 +71,7 @@ object Json {
     state.json.startsWith(symbol).option(state.advance(symbol.length))
 
   case class State[+T](private val jsonLeft: JsonString, data: T = null) {
-    val json = jsonLeft.replaceAll("^\\s+", "")
+    val json: JsonString = jsonLeft.replaceAll("^\\s+", "")
 
     def advance(chars: Int) =
       State(json.substring(chars), data)
