@@ -137,7 +137,7 @@ class JsonTest extends FunSpec with Inside with Matchers with MockitoSugar {
 
   it("should handle complex json 6") {
     val json = testFromFile("example6.json")
-    json > "definitions" > "diskDevice" > "properties" > "pattern" should be (Json(Some("^/dev/[^/]+(/[^/]+)*$")))
+    json > "definitions" > "diskDevice" > "properties" > "device" > "pattern" should be (Json(Some("^/dev/[^/]+(/[^/]+)*$")))
     json > "definitions" > "diskDevice" > "additionalProperties" should be (Json(Some(false)))
   }
 
