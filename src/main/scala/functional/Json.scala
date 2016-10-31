@@ -62,10 +62,26 @@ object Json {
   private def matchRegEx[B](pattern: String, state: State[Any]): Option[Match] =
     ("""^""" + pattern).r.findFirstMatchIn(state.json)
 
+  private def elements(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
+    valueCommaThenElements(state) orElse value(state).map(s => s.mapData(d => List(d)))
+
+  private def emptyArray(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
+    regExValue("\\[\\]", _ => List(), state)
+
+  private def valueCommaThenElements(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
+    for {
+      valueState <- value(state)
+      commaState <- symbol(",", valueState)
+      elementsState <- elements(commaState)
+    } yield elementsState.mapData { valueState.data +: _ }
+
   private def arr(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
+    emptyArray(state) orElse arrXXX(state)
+
+  private def arrXXX(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
     for {
       openBracketState <- symbol("[", state)
-      elementsState <- repeat(value, openBracketState, ",")
+      elementsState <- elements(openBracketState)
       closeBracketState <- symbol("]", elementsState)
     } yield closeBracketState
 

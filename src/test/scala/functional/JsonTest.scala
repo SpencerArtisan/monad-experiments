@@ -82,6 +82,11 @@ class JsonTest extends FunSpec with Inside with Matchers with MockitoSugar {
     json > "key" should be (Json(Some(List("1"))))
   }
 
+  it("should parse json array with multiple non-empty values") {
+    val json = Json.parse("""{"key":[1, 2, 3]}""")
+    json > "key" should be (Json(Some(List(1, 2, 3))))
+  }
+
   it("should parse json array with non-empty objects") {
     val json = Json.parse("""{"key":[{"key2":"value"}]}""")
     json > "key" should be (Json(Some(List(Map("key2" -> "value")))))
@@ -122,7 +127,7 @@ class JsonTest extends FunSpec with Inside with Matchers with MockitoSugar {
 
   it("should handle complex json 1") {
     val json = testFromFile("example1.json")
-    json > "colorsArray" > 2 > "colorName" should be (Json(Some("blue")))
+    json > "colorsArray" > 0 > "colorName" should be (Json(Some("red")))
   }
 
   it("should handle complex json 2") {
