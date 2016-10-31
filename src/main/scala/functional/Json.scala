@@ -28,10 +28,10 @@ object Json {
     obj(state) orElse arr(state) orElse quotedValue(state) orElse booleanValue(state) orElse doubleValue(state) orElse intValue(state) orElse nullValue(state)
 
   private def intValue(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
-    regEx("""\d+""", v => v.toString.toInt, state)
+    regEx("""-?\d+""", v => v.toString.toInt, state)
 
   private def doubleValue(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
-    regEx("""\d+\.\d+""", v => v.toString.toDouble, state)
+    regEx("""-?\d+\.\d+""", v => v.toString.toDouble, state)
 
   private def booleanValue(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
     trueValue(state) orElse falseValue(state)
