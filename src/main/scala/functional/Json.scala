@@ -69,11 +69,7 @@ object Json {
     regExValue("\\[\\]", _ => List(), state)
 
   private def nonEmptyArray(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
-    for {
-      openBracketState <- symbol("[", state)
-      elementsState <- elements(openBracketState)
-      closeBracketState <- symbol("]", elementsState)
-    } yield closeBracketState
+    symbol("[")(state) flatMap elements flatMap symbol("]")
 
   private def elements(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
     valueCommaThenElements(state) orElse value(state).map(s => s.mapData(d => List(d)))
@@ -81,7 +77,7 @@ object Json {
   private def valueCommaThenElements(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
     for {
       valueState <- value(state)
-      commaState <- symbol(",", valueState)
+      commaState <- symbol(",")(valueState)
       elementsState <- elements(commaState)
     } yield elementsState.mapData { valueState.data +: _ }
 
@@ -93,9 +89,9 @@ object Json {
 
   private def nonEmptyObj(state: State[Any])(implicit converter: Converter): Option[State[Map[String, Any]]] =
     for {
-      openBracketState <- symbol("{", state)
+      openBracketState <- symbol("{")(state)
       elementsState <- members(openBracketState)
-      closeBracketState <- symbol("}", elementsState)
+      closeBracketState <- symbol("}")(elementsState)
     } yield closeBracketState.mapData { _.toMap }
 
   private def members(state: State[Any])(implicit converter: Converter): Option[State[List[(String, Any)]]] =
@@ -104,18 +100,18 @@ object Json {
   private def tupleCommaThenMembers(state: State[Any])(implicit converter: Converter): Option[State[List[(String, Any)]]] =
     for {
       valueState <- tuple(state)
-      commaState <- symbol(",", valueState)
+      commaState <- symbol(",")(valueState)
       elementsState <- members(commaState)
     } yield elementsState.mapData { valueState.data +: _ }
 
   private def tuple(state: State[Any])(implicit converter: Converter): Option[State[(String, Any)]] =
     for {
       firstState <- stringValue[String](state)
-      colonState <- symbol(":", firstState)
+      colonState <- symbol(":")(firstState)
       secondState <- value(colonState)(converter.withDefault(firstState.data))
     } yield secondState.mapData(firstState.data -> _)
 
-  private def symbol[A](symbol: String, state: State[A]): Option[State[A]] =
+  private def symbol[A](symbol: String)(state: State[A]): Option[State[A]] =
     state.json.startsWith(symbol).option(state.advance(symbol.length))
 
 
