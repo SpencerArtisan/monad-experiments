@@ -10,6 +10,8 @@ case class Json(data: Option[Any]) {
 
   def >(index: Int): Json =
     Json(data flatMap { _.asInstanceOf[List[Any]].lift(index) })
+
+  def toValue: Any = data.get
 }
 
 object Json {
