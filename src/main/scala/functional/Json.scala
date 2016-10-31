@@ -21,14 +21,11 @@ object Json {
   def parse(jsonText: JsonString)(implicit converter: Converter = new Converter()): Json =
     Json(for {
       json <- Option(jsonText)
-      objState <- expr(State(json))
+      objState <- value(State(json))
     } yield objState.data)
 
-  private def expr(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
-    value(state) orElse arr(state) orElse obj(state)
-
   private def value(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
-    quotedValue(state) orElse booleanValue(state) orElse doubleValue(state) orElse intValue(state) orElse nullValue(state)
+    obj(state) orElse arr(state) orElse quotedValue(state) orElse booleanValue(state) orElse doubleValue(state) orElse intValue(state) orElse nullValue(state)
 
   private def intValue(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
     regEx("""\d+""", v => v.toString.toInt, state)
@@ -57,7 +54,7 @@ object Json {
   private def arr(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
     for {
       openBracketState <- symbol("[", state)
-      elementsState <- repeat(expr, openBracketState, ",")
+      elementsState <- repeat(value, openBracketState, ",")
       closeBracketState <- symbol("]", elementsState)
     } yield closeBracketState
 
@@ -88,7 +85,7 @@ object Json {
     for {
       firstState <- quotedValue[String](state)
       colonState <- symbol(":", firstState)
-      secondState <- expr(colonState)(converter.withDefault(firstState.data))
+      secondState <- value(colonState)(converter.withDefault(firstState.data))
     } yield secondState.mapData(firstState.data -> _)
 
   private def symbol[A](symbol: String, state: State[A]): Option[State[A]] =
