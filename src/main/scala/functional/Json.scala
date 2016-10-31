@@ -25,31 +25,40 @@ object Json {
     } yield objState.data)
 
   private def value(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
-    obj(state) orElse arr(state) orElse quotedValue(state) orElse booleanValue(state) orElse doubleValue(state) orElse intValue(state) orElse nullValue(state)
+    obj(state) orElse
+    arr(state) orElse
+    stringValue(state) orElse
+    booleanValue(state) orElse
+    doubleValue(state) orElse
+    intValue(state) orElse
+    nullValue(state)
 
-  private def intValue(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
-    regEx("""-?\d+""", v => v.toString.toInt, state)
+  private def intValue(state: State[Any]): Option[State[Any]] =
+    regExValue("""-?\d+""", v => v.toString.toInt, state)
 
-  private def doubleValue(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
-    regEx("""-?\d+\.\d+""", v => v.toString.toDouble, state)
+  private def doubleValue(state: State[Any]): Option[State[Any]] =
+    regExValue("""-?\d+\.\d+""", v => v.toString.toDouble, state)
 
-  private def booleanValue(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
+  private def booleanValue(state: State[Any]): Option[State[Any]] =
     trueValue(state) orElse falseValue(state)
 
-  private def trueValue(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
-    regEx("true", _ => true, state)
+  private def trueValue(state: State[Any]): Option[State[Any]] =
+    regExValue("true", _ => true, state)
 
-  private def falseValue(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
-    regEx("false", _ => false, state)
+  private def falseValue(state: State[Any]): Option[State[Any]] =
+    regExValue("false", _ => false, state)
 
-  private def nullValue(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
-    regEx("null", _ => null, state)
+  private def nullValue(state: State[Any]): Option[State[Any]] =
+    regExValue("null", _ => null, state)
 
-  private def regEx(pattern: String, result: Any => Any, state: State[Any]): Option[State[Any]] =
-    ("""^""" + pattern).r.findFirstMatchIn(state.json).map(m => state.advance(m.group(0).length, result(m.group(0))))
+  private def stringValue[B](state: State[Any])(implicit converter: Converter): Option[State[B]] =
+    matchRegEx("\"(.+?)\"", state).map(m => state.advance(m.group(0).length, converter.convert(m.group(1))))
 
-  private def quotedValue[B](state: State[Any])(implicit converter: Converter): Option[State[B]] =
-    quoted(state).map { m => state.advance(m.group(0).length, converter.convert(m.group(1))) }
+  private def regExValue[B](pattern: String, result: String => B, state: State[Any]): Option[State[B]] =
+    matchRegEx(pattern, state).map(m => state.advance(m.group(0).length, result(m.group(m.groupCount))))
+
+  private def matchRegEx[B](pattern: String, state: State[Any]): Option[Match] =
+    ("""^""" + pattern).r.findFirstMatchIn(state.json)
 
   private def arr(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
     for {
@@ -78,18 +87,16 @@ object Json {
     } orElse firstElementStateOption.map { _.mapData { List(_) } }
   }
 
-  private def quoted(state: State[Any]): Option[Match] =
-    """^"(.+?)"""".r.findFirstMatchIn(state.json)
-
   private def tuple(state: State[Any])(implicit converter: Converter): Option[State[(String, Any)]] =
     for {
-      firstState <- quotedValue[String](state)
+      firstState <- stringValue[String](state)
       colonState <- symbol(":", firstState)
       secondState <- value(colonState)(converter.withDefault(firstState.data))
     } yield secondState.mapData(firstState.data -> _)
 
   private def symbol[A](symbol: String, state: State[A]): Option[State[A]] =
     state.json.startsWith(symbol).option(state.advance(symbol.length))
+
 
   case class State[+T](private val jsonLeft: JsonString, data: T = null) {
     val json: JsonString = jsonLeft.replaceAll("^\\s+", "")
