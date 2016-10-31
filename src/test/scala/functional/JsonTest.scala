@@ -26,9 +26,19 @@ class JsonTest extends FunSpec with Inside with Matchers with MockitoSugar {
     json > "key" should be (Json(None))
   }
 
-  it("should parse json value") {
+  it("should parse json quoted value") {
     val json = Json.parse("""{"key":"value"}""")
     json > "key" should be (Json(Some("value")))
+  }
+
+  it("should parse json true boolean value") {
+    val json = Json.parse("""{"key":true}""")
+    json > "key" should be (Json(Some(true)))
+  }
+
+  it("should parse json false boolean value") {
+    val json = Json.parse("""{"key":false}""")
+    json > "key" should be (Json(Some(false)))
   }
 
   it("should parse empty json array") {
@@ -85,34 +95,42 @@ class JsonTest extends FunSpec with Inside with Matchers with MockitoSugar {
   }
 
   it("should handle complex json 1") {
-    testFromFile("example1.json")
+    val json = testFromFile("example1.json")
+    json > "colorsArray" > 2 > "colorName" should be (Json(Some("blue")))
   }
 
   it("should handle complex json 2") {
-    testFromFile("example2.json")
+    val json = testFromFile("example2.json")
+    json > "isAlive" should be (Json(Some(true)))
   }
 
   it("should handle complex json 3") {
-    testFromFile("example3.json")
+    val json = testFromFile("example3.json")
+    json > "ppu" should be (Json(Some(0.55)))
   }
 
   it("should handle complex json 4") {
-    testFromFile("example4.json")
+    val json = testFromFile("example4.json")
+    json > 2 > "batters" > "batter" > 1 > "id" should be (Json(Some("1002")))
   }
 
   it("should handle complex json 5") {
-    testFromFile("example5.json")
+    val json = testFromFile("example5.json")
+    json > "properties" > "storage" > "oneOf" > 1 > "$ref" should be (Json(Some("#/definitions/diskUUID")))
   }
 
   it("should handle complex json 6") {
-    testFromFile("example6.json")
+    val json = testFromFile("example6.json")
+    json > "definitions" > "diskDevice" > "properties" > "pattern" should be (Json(Some("^/dev/[^/]+(/[^/]+)*$")))
+    json > "definitions" > "diskDevice" > "additionalProperties" should be (Json(Some(false)))
   }
 
   it("should handle complex json 7") {
-    testFromFile("example7.json")
+    val json = testFromFile("example7.json")
+    json > "result_count" should be (Json(Some(5)))
   }
 
-  private def testFromFile(file: String) = {
+  private def testFromFile(file: String): Json = {
     val json = Source.fromURL(getClass.getResource("/" + file)).mkString
     Json.parse(json)
   }

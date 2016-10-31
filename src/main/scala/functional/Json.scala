@@ -25,10 +25,25 @@ object Json {
     } yield objState.data)
 
   private def expr(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
-    value(state) orElse arr(state) orElse obj(state)
+    valueZ(state) orElse arr(state) orElse obj(state)
 
-  private def value[B](state: State[Any])(implicit converter: Converter): Option[State[B]] =
-    quoted(state).map { text => state.advance(text.group(0).length, converter.convert(text.group(1))) }
+  private def valueZ(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
+    quotedValue(state) orElse booleanValue(state)
+
+  private def booleanValue(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
+    trueValue(state) orElse falseValue(state)
+
+  private def trueValue(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
+    regEx("true", true, state)
+
+  private def falseValue(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
+    regEx("false", false, state)
+
+  private def regEx(pattern: String, result: Any, state: State[Any]): Option[State[Any]] =
+    ("""^""" + pattern).r.findFirstMatchIn(state.json).map(m => state.advance(m.group(0).length, result))
+
+  private def quotedValue[B](state: State[Any])(implicit converter: Converter): Option[State[B]] =
+    quoted(state).map { m => state.advance(m.group(0).length, converter.convert(m.group(1))) }
 
   private def arr(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
     for {
@@ -62,7 +77,7 @@ object Json {
 
   private def tuple(state: State[Any])(implicit converter: Converter): Option[State[(String, Any)]] =
     for {
-      firstState <- value[String](state)
+      firstState <- quotedValue[String](state)
       colonState <- symbol(":", firstState)
       secondState <- expr(colonState)(converter.withDefault(firstState.data))
     } yield secondState.mapData(firstState.data -> _)
