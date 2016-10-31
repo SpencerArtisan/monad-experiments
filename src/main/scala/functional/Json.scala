@@ -62,11 +62,21 @@ object Json {
   private def matchRegEx[B](pattern: String, state: State[Any]): Option[Match] =
     ("""^""" + pattern).r.findFirstMatchIn(state.json)
 
-  private def elements(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
-    valueCommaThenElements(state) orElse value(state).map(s => s.mapData(d => List(d)))
+  private def arr(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
+    emptyArray(state) orElse nonEmptyArray(state)
 
   private def emptyArray(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
     regExValue("\\[\\]", _ => List(), state)
+
+  private def nonEmptyArray(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
+    for {
+      openBracketState <- symbol("[", state)
+      elementsState <- elements(openBracketState)
+      closeBracketState <- symbol("]", elementsState)
+    } yield closeBracketState
+
+  private def elements(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
+    valueCommaThenElements(state) orElse value(state).map(s => s.mapData(d => List(d)))
 
   private def valueCommaThenElements(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
     for {
@@ -75,35 +85,28 @@ object Json {
       elementsState <- elements(commaState)
     } yield elementsState.mapData { valueState.data +: _ }
 
-  private def arr(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
-    emptyArray(state) orElse arrXXX(state)
-
-  private def arrXXX(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
-    for {
-      openBracketState <- symbol("[", state)
-      elementsState <- elements(openBracketState)
-      closeBracketState <- symbol("]", elementsState)
-    } yield closeBracketState
-
   private def obj(state: State[Any])(implicit converter: Converter): Option[State[Map[String, Any]]] =
-    for {
-      openBraceState <- symbol("{", state)
-      elementsState <- repeat(tuple, openBraceState, ",")
-      closeBraceState <- symbol("}", elementsState)
-    } yield closeBraceState.mapData { _.toMap }
+    emptyObj(state) orElse nonEmptyObj(state)
 
-  private def repeat[B <: Any](parser: ElementParser[Any, B], state: State[Any], separator: String)(implicit converter: Converter): Option[State[List[B]]] = {
-    val firstElementStateOption = parser(state)
-    if (firstElementStateOption.isEmpty)
-      state.newData(List()).some
-    else {
-      for {
-        firstElementState <- firstElementStateOption
-        separatorState <- symbol(separator, firstElementState)
-        restElementsState <- repeat(parser, separatorState, separator)
-      } yield restElementsState.mapData { firstElementState.data +: _ }
-    } orElse firstElementStateOption.map { _.mapData { List(_) } }
-  }
+  private def emptyObj(state: State[Any])(implicit converter: Converter): Option[State[Map[String, Any]]] =
+    regExValue("\\{\\}", _ => Map(), state)
+
+  private def nonEmptyObj(state: State[Any])(implicit converter: Converter): Option[State[Map[String, Any]]] =
+    for {
+      openBracketState <- symbol("{", state)
+      elementsState <- members(openBracketState)
+      closeBracketState <- symbol("}", elementsState)
+    } yield closeBracketState.mapData { _.toMap }
+
+  private def members(state: State[Any])(implicit converter: Converter): Option[State[List[(String, Any)]]] =
+    tupleCommaThenMembers(state) orElse tuple(state).map(s => s.mapData(d => List(d)))
+
+  private def tupleCommaThenMembers(state: State[Any])(implicit converter: Converter): Option[State[List[(String, Any)]]] =
+    for {
+      valueState <- tuple(state)
+      commaState <- symbol(",", valueState)
+      elementsState <- members(commaState)
+    } yield elementsState.mapData { valueState.data +: _ }
 
   private def tuple(state: State[Any])(implicit converter: Converter): Option[State[(String, Any)]] =
     for {
