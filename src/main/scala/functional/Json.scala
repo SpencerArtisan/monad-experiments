@@ -25,22 +25,31 @@ object Json {
     } yield objState.data)
 
   private def expr(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
-    valueZ(state) orElse arr(state) orElse obj(state)
+    value(state) orElse arr(state) orElse obj(state)
 
-  private def valueZ(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
-    quotedValue(state) orElse booleanValue(state)
+  private def value(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
+    quotedValue(state) orElse booleanValue(state) orElse doubleValue(state) orElse intValue(state) orElse nullValue(state)
+
+  private def intValue(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
+    regEx("""\d+""", v => v.toString.toInt, state)
+
+  private def doubleValue(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
+    regEx("""\d+\.\d+""", v => v.toString.toDouble, state)
 
   private def booleanValue(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
     trueValue(state) orElse falseValue(state)
 
   private def trueValue(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
-    regEx("true", true, state)
+    regEx("true", _ => true, state)
 
   private def falseValue(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
-    regEx("false", false, state)
+    regEx("false", _ => false, state)
 
-  private def regEx(pattern: String, result: Any, state: State[Any]): Option[State[Any]] =
-    ("""^""" + pattern).r.findFirstMatchIn(state.json).map(m => state.advance(m.group(0).length, result))
+  private def nullValue(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
+    regEx("null", _ => null, state)
+
+  private def regEx(pattern: String, result: Any => Any, state: State[Any]): Option[State[Any]] =
+    ("""^""" + pattern).r.findFirstMatchIn(state.json).map(m => state.advance(m.group(0).length, result(m.group(0))))
 
   private def quotedValue[B](state: State[Any])(implicit converter: Converter): Option[State[B]] =
     quoted(state).map { m => state.advance(m.group(0).length, converter.convert(m.group(1))) }
