@@ -2,30 +2,26 @@ package functional
 
 import scalaz._
 import Scalaz._
-import scala.collection.immutable.Stack
 import scala.util.matching.Regex.Match
 
-case class Json(data: Option[Any]) {
+case class Json(private val data: Option[Any]) {
   def >(key: String): Json =
     Json(data flatMap { _.asInstanceOf[Map[String, Any]].get(key) })
 
   def >(index: Int): Json =
     Json(data flatMap { _.asInstanceOf[List[Any]].lift(index) })
 
-  def toValue: Any = data.get
+  def get: Any = data.get
 }
 
 object Json {
-  type JsonString = String
-  type ElementParser[A, B] = State[A] => Option[State[B]]
-
   implicit def jsonToOption[T](json: Json): Option[T] = json.data map { _.asInstanceOf[T] }
 
-  def parse(jsonText: JsonString): Json =
+  def parse(jsonText: String): Json =
     Json(for {
       json <- Option(jsonText)
       objState <- value(State(json))
-    } yield objState.singleValue)
+    } yield objState.value)
 
   private def value(state: State[Any]): Option[State[Any]] =
     obj(state) orElse
@@ -106,13 +102,13 @@ object Json {
     state.popTuple()
 
   private def asMap[A](state: State[Any]): State[Map[String, Any]] =
-    state.popTo("{").mapHead(a => a.asInstanceOf[List[(String, Any)]].toMap)
+    state.popTo("{").map(a => a.asInstanceOf[List[(String, Any)]].toMap)
 
   private def asList[A](state: State[Any]): State[List[Any]] =
     state.popTo("[")
 
-  case class State[+T](private val jsonLeft: JsonString, stack: List[Any] = List()) {
-    val json: JsonString = jsonLeft.replaceAll("^\\s+", "")
+  case class State[+T](private val jsonLeft: String, private val stack: List[Any] = List()) {
+    val json: String = jsonLeft.replaceAll("^\\s+", "")
 
     def advance(chars: Int): State[T] =
       State(json.substring(chars), stack)
@@ -129,10 +125,10 @@ object Json {
     def popTuple(marker: Any): State[(String, Any)] =
       State(json, (stack.tail.head, stack.head) :: stack.drop(2))
 
-    def singleValue: T =
+    def value: T =
       stack.head.asInstanceOf[T]
 
-    def mapHead[U](f: T => U): State[U] =
+    def map[U](f: T => U): State[U] =
       State(json, f(stack.head.asInstanceOf[T]) :: stack.tail)
   }
 }

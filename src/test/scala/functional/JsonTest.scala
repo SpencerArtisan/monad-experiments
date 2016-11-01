@@ -28,7 +28,7 @@ class JsonTest extends FunSpec with Inside with Matchers with MockitoSugar {
 
   it("should parse json quoted value") {
     val json = Json.parse("""{"key":"value"}""")
-    (json > "key" toValue) should be ("value")
+    (json > "key" get) should be ("value")
   }
 
   it("should parse json true boolean value") {
