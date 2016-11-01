@@ -19,7 +19,6 @@ object Json {
   type Parser[T] = State[Any] => Option[State[T]]
 
   implicit def jsonToOption[T](json: Json): Option[T] = json.data map { _.asInstanceOf[T] }
-  implicit def stateToOption[T](state: State[T]): Option[State[T]] = Option(state)
 
   implicit class OptionPlus[A](o: Option[A]) {
     def | [B >: A](alternative: => Option[B]): Option[B] = o.orElse(alternative)
@@ -39,7 +38,7 @@ object Json {
     state >> nullValue
 
   private def numberValue: Parser[AnyVal] = (state) =>
-    (state >> doubleValue) | (state >> intValue)
+    state >> doubleValue | state >> intValue
 
   private def intValue: Parser[Int] =
     regExValue("""-?\d+""", _.toInt)
@@ -48,7 +47,7 @@ object Json {
     regExValue("""-?\d+\.\d+""", _.toDouble)
 
   private def booleanValue: Parser[Boolean] = (state) =>
-    (state >> trueValue) | (state >> falseValue)
+    state >> trueValue | state >> falseValue
 
   private def trueValue: Parser[Boolean] =
     constValue("true", _ => true)
@@ -66,7 +65,7 @@ object Json {
     regExValue(Pattern.quote(value), result)
 
   private def arr: Parser[List[Any]] = (state) =>
-    (state >> emptyArray) | (state >> nonEmptyArray)
+    state >> emptyArray | state >> nonEmptyArray
 
   private def emptyArray: Parser[List[Any]] =
     constValue("[]", _ => List())
@@ -75,10 +74,10 @@ object Json {
     state >> symbol("[") andThen elements andThen symbol("]") as list
 
   private def elements: Parser[Any] = (state) =>
-    (state >> value andThen ignore(",") andThen elements) | (state >> value)
+    (state >> value andThen ignore(",") andThen elements) | state >> value
 
   private def obj: Parser[Map[String, Any]] = (state) =>
-    (state >> emptyObj) | (state >> nonEmptyObj)
+    state >> emptyObj | state >> nonEmptyObj
 
   private def emptyObj: Parser[Map[String, Any]] =
     constValue("{}", _ => Map[String, Any]())
@@ -87,7 +86,7 @@ object Json {
     state >> symbol("{") andThen members andThen symbol("}") as map
 
   private def members: Parser[Any] = (state) =>
-    (state >> tuple andThen ignore(",") andThen members) | (state >> tuple)
+    (state >> tuple andThen ignore(",") andThen members) | state >> tuple
 
   private def tuple: Parser[(String, Any)] = (state) =>
     state >> stringValue andThen ignore(":") andThen value as pair
