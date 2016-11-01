@@ -71,8 +71,8 @@ object Json {
   private def emptyArray: Parser[List[Any]] =
     constValue("[]", _ => List())
 
-  private def nonEmptyArray: Parser[List[Any]] =
-    _ >> symbol("[") andThen elements andThen symbol("]") as list
+  private def nonEmptyArray: Parser[List[Any]] = (state) =>
+    state >> symbol("[") andThen elements andThen symbol("]") as list
 
   private def elements: Parser[Any] = (state) =>
     (state >> value andThen ignore(",") andThen elements) | (state >> value)
@@ -83,20 +83,20 @@ object Json {
   private def emptyObj: Parser[Map[String, Any]] =
     constValue("{}", _ => Map[String, Any]())
 
-  private def nonEmptyObj: Parser[Map[String, Any]] =
-    _ >> symbol("{") andThen members andThen symbol("}") as map
+  private def nonEmptyObj: Parser[Map[String, Any]] = (state) =>
+    state >> symbol("{") andThen members andThen symbol("}") as map
 
   private def members: Parser[Any] = (state) =>
-    (tuple(state) andThen ignore(",") andThen members) | tuple(state)
+    (state >> tuple andThen ignore(",") andThen members) | (state >> tuple)
 
-  private def tuple: Parser[(String, Any)] =
-    _ >> stringValue andThen ignore(":") andThen value as pair
+  private def tuple: Parser[(String, Any)] = (state) =>
+    state >> stringValue andThen ignore(":") andThen value as pair
 
-  private def symbol(symbol: String): Parser[Any] =
-    _ >> constValue(symbol, identity)
+  private def symbol(symbol: String): Parser[Any] = (state) =>
+    state >> constValue(symbol, identity)
 
-  private def ignore(symbol: String): Parser[Any] =
-    _ >> constValue(symbol, _ => null)
+  private def ignore(symbol: String): Parser[Any] = (state) =>
+    state >> constValue(symbol, _ => null)
 
   private def pair[A](state: State[Any]): State[(String, Any)] =
     state.popTuple()
@@ -110,6 +110,7 @@ object Json {
   private def regExValue[B](pattern: String, result: String => B): Parser[B] = (state) =>
     ("^" + pattern).r.findFirstMatchIn(state.json).map(m => state.advance(m.group(0).length, result(m.group(m.groupCount))))
 
+  
   case class State[+T](private val jsonLeft: String, private val stack: List[Any] = List()) {
     val json: String = jsonLeft.replaceAll("^\\s+", "")
 
@@ -119,20 +120,17 @@ object Json {
     def advance[U](chars: Int, newData: U): State[U] =
       State(json.substring(chars), (newData == null) ? stack | newData :: stack)
 
-    def push[U](newData: U): State[U] =
-      advance(0, newData)
-
     def popTo(marker: Any): State[List[Any]] =
       State(json, stack.drop(1).takeWhile(item => item != marker).reverse :: stack.dropWhile(item => item != marker).drop(1))
 
     def popTuple(marker: Any): State[(String, Any)] =
       State(json, (stack.tail.head, stack.head) :: stack.drop(2))
 
-    def data: T =
-      stack.head.asInstanceOf[T]
-
     def map[U](f: T => U): State[U] =
       State(json, f(stack.head.asInstanceOf[T]) :: stack.tail)
+
+    def data: T =
+      stack.head.asInstanceOf[T]
 
     def >>[A](parser: Parser[A]):Option[State[A]] = Some(this) andThen parser
   }
