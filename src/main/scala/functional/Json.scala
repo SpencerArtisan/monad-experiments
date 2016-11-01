@@ -80,7 +80,7 @@ object Json {
     state >> emptyObj | state >> nonEmptyObj
 
   private def emptyObj: Parser[Map[String, Any]] =
-    constValue("{}", _ => Map[String, Any]())
+    constValue("{}", _ => Map())
 
   private def nonEmptyObj: Parser[Map[String, Any]] = (state) =>
     state >> symbol("{") andThen members andThen symbol("}") as map
@@ -97,17 +97,18 @@ object Json {
   private def ignore(symbol: String): Parser[Any] = (state) =>
     state >> constValue(symbol, _ => null)
 
-  private def pair[A](state: State[Any]): State[(String, Any)] =
-    state.popTuple()
-
-  private def map[A](state: State[Any]): State[Map[String, Any]] =
-    state.popTo("{").map(a => a.asInstanceOf[List[(String, Any)]].toMap)
-
-  private def list[A](state: State[Any]): State[List[Any]] =
-    state.popTo("[")
-
   private def regExValue[B](pattern: String, result: String => B): Parser[B] = (state) =>
     ("^" + pattern).r.findFirstMatchIn(state.json).map(m => state.advance(m.group(0).length, result(m.group(m.groupCount))))
+
+
+  private def pair(state: State[Any]): State[(String, Any)] =
+    state.popTuple()
+
+  private def map(state: State[Any]): State[Map[String, Any]] =
+    state.popTo("{").map(a => a.asInstanceOf[List[(String, Any)]].toMap)
+
+  private def list(state: State[Any]): State[List[Any]] =
+    state.popTo("[")
 
 
   case class State[+T](private val jsonLeft: String, private val stack: List[Any] = List()) {
