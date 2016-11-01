@@ -12,3 +12,9 @@ val r2  = Http(OmdbQuery.getFilm(id.get)).asString.body
 Json.parse(r2).get.toString
 
 
+minusTen(13)
+minusNine(13)
+minusY(11, 1)
+def minusTen(x: Int): Int = x - 10
+def minusNine: Int => Int = _ - 9
+def minusY(x: Int, y: Int) = x - y

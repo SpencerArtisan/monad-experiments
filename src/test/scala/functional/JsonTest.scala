@@ -63,7 +63,7 @@ class JsonTest extends FunSpec with Inside with Matchers with MockitoSugar {
 
   it("should parse json null value") {
     val json = Json.parse("""{"key":null,"key2":42}""")
-    json > "key" should be (Json(Some(null)))
+    json > "key" should be (Json(None))
     json > "key2" should be (Json(Some(42)))
   }
 

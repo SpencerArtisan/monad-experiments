@@ -1,5 +1,7 @@
 package functional
 
+import java.util.regex.Pattern
+
 import scalaz._
 import Scalaz._
 
@@ -19,15 +21,13 @@ object Json {
   implicit def jsonToOption[T](json: Json): Option[T] = json.data map { _.asInstanceOf[T] }
   implicit def stateToOption[T](state: State[T]): Option[State[T]] = Option(state)
   implicit class OptionPlus[A](o: Option[A]) {
-    def |[B >: A](alternative: => Option[B]): Option[B] =
-      o.orElse(alternative)
+    def | [B >: A](alternative: => Option[B]): Option[B] = o.orElse(alternative)
+    def andThen [B](f: A => Option[B]): Option[B] = o.flatMap[B](f)
+    def as [B](f: A => B): Option[B] = o.map(f)
   }
 
   def parse(jsonText: String): Json =
-    Json(for {
-      json <- Option(jsonText)
-      objState <- value(State(json))
-    } yield objState.value)
+    Json(Option(jsonText) map {State(_)} flatMap value map {_.data})
 
   private def value: Parser[Any] = (state) =>
     obj(state) |
@@ -37,29 +37,32 @@ object Json {
     numberValue(state) |
     nullValue(state)
 
-  private def numberValue: Parser[Any] = (state) =>
+  private def numberValue: Parser[AnyVal] = (state) =>
     doubleValue(state) | intValue(state)
 
-  private def intValue: Parser[Any] =
+  private def intValue: Parser[Int] =
     regExValue("""-?\d+""", _.toInt)
 
-  private def doubleValue: Parser[Any] =
+  private def doubleValue: Parser[Double] =
     regExValue("""-?\d+\.\d+""", _.toDouble)
 
-  private def booleanValue: Parser[Any] = (state) =>
+  private def booleanValue: Parser[Boolean] = (state) =>
     trueValue(state) | falseValue(state)
 
-  private def trueValue: Parser[Any] =
+  private def trueValue: Parser[Boolean] =
     regExValue("true", _ => true)
 
-  private def falseValue: Parser[Any] =
+  private def falseValue: Parser[Boolean] =
     regExValue("false", _ => false)
 
-  private def nullValue: Parser[Any] =
+  private def nullValue: Parser[Null] =
     regExValue("null", _ => null)
 
-  private def stringValue: Parser[Any] =
+  private def stringValue: Parser[String] =
     regExValue("\"(.+?)\"", identity)
+
+  private def constValue(value: String): Parser[String] =
+    regExValue(Pattern.quote(value), identity)
 
   private def arr: Parser[List[Any]] = (state) =>
     emptyArray(state) | nonEmptyArray(state)
@@ -67,14 +70,14 @@ object Json {
   private def emptyArray: Parser[List[Any]] =
     regExValue("\\[\\]", _ => List())
 
-  private def nonEmptyArray: Parser[List[Any]] = (state) =>
-    state flatMap symbol("[") flatMap elements flatMap symbol("]") map asList
+  private def nonEmptyArray: Parser[List[Any]] =
+    _ is_= symbol("[") andThen elements andThen symbol("]") as list
 
   private def elements: Parser[Any] = (state) =>
     valueCommaThenElements(state) | value(state)
 
-  private def valueCommaThenElements: Parser[Any] = (state) =>
-    Some(state) flatMap value flatMap ignoredSymbol(",") flatMap elements
+  private def valueCommaThenElements: Parser[Any] =
+    _ is_= value andThen ignoredSymbol(",") andThen elements
 
   private def obj: Parser[Map[String, Any]] = (state) =>
     emptyObj(state) | nonEmptyObj(state)
@@ -82,20 +85,20 @@ object Json {
   private def emptyObj: Parser[Map[String, Any]] =
     regExValue("\\{\\}", _ => Map[String, Any]())
 
-  private def nonEmptyObj: Parser[Map[String, Any]] = (state) =>
-    state flatMap symbol("{") flatMap members flatMap symbol("}") map asMap
+  private def nonEmptyObj: Parser[Map[String, Any]] =
+    _ is_= symbol("{") andThen members andThen symbol("}") map asMap
 
   private def members(state: State[Any]): Option[State[Any]] =
     tupleCommaThenMembers(state) | tuple(state)
 
   private def tupleCommaThenMembers: Parser[Any] = (state) =>
-    tuple(state) flatMap ignoredSymbol(",") flatMap members
+    tuple(state) andThen ignoredSymbol(",") andThen members
 
-  private def tuple: Parser[Any] = (state) =>
-    state flatMap stringValue flatMap ignoredSymbol(":") flatMap value map asTuple
+  private def tuple: Parser[(String, Any)] =
+    _ is_= stringValue andThen ignoredSymbol(":") andThen value map asTuple
 
-  private def symbol(symbol: String): Parser[Any] = (state) =>
-    state.json.startsWith(symbol).option(state.advance(symbol.length, symbol))
+  private def symbol(symbol: String): Parser[Any] =
+    _ is_= constValue(symbol)
 
   private def ignoredSymbol(symbol: String): Parser[Any] = (state) =>
     state.json.startsWith(symbol).option(state.advance(symbol.length))
@@ -106,7 +109,7 @@ object Json {
   private def asMap[A](state: State[Any]): State[Map[String, Any]] =
     state.popTo("{").map(a => a.asInstanceOf[List[(String, Any)]].toMap)
 
-  private def asList[A](state: State[Any]): State[List[Any]] =
+  private def list[A](state: State[Any]): State[List[Any]] =
     state.popTo("[")
 
   private def regExValue[B](pattern: String, result: String => B): Parser[B] = (state) =>
@@ -119,7 +122,7 @@ object Json {
       State(json.substring(chars), stack)
 
     def advance[U](chars: Int, newData: U): State[U] =
-      State(json.substring(chars), newData :: stack)
+      State(json.substring(chars), (newData == null) ? stack | newData :: stack)
 
     def push[U](newData: U): State[U] =
       advance(0, newData)
@@ -130,11 +133,13 @@ object Json {
     def popTuple(marker: Any): State[(String, Any)] =
       State(json, (stack.tail.head, stack.head) :: stack.drop(2))
 
-    def value: T =
+    def data: T =
       stack.head.asInstanceOf[T]
 
     def map[U](f: T => U): State[U] =
       State(json, f(stack.head.asInstanceOf[T]) :: stack.tail)
+
+    def is_=(parser: Parser[_]) = Some(this) andThen parser
   }
 }
 
