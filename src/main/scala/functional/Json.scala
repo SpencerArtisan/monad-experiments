@@ -2,6 +2,7 @@ package functional
 
 import scalaz._
 import Scalaz._
+import scala.collection.immutable.Stack
 import scala.util.matching.Regex.Match
 
 case class Json(data: Option[Any]) {
@@ -20,13 +21,13 @@ object Json {
 
   implicit def jsonToOption[T](json: Json): Option[T] = json.data map { _.asInstanceOf[T] }
 
-  def parse(jsonText: JsonString)(implicit converter: Converter = new Converter()): Json =
+  def parse(jsonText: JsonString): Json =
     Json(for {
       json <- Option(jsonText)
       objState <- value(State(json))
-    } yield objState.data)
+    } yield objState.singleValue)
 
-  private def value(state: State[Any])(implicit converter: Converter): Option[State[Any]] =
+  private def value(state: State[Any]): Option[State[Any]] =
     obj(state) orElse
     arr(state) orElse
     stringValue(state) orElse
@@ -53,88 +54,86 @@ object Json {
   private def nullValue(state: State[Any]): Option[State[Any]] =
     regExValue("null", _ => null, state)
 
-  private def stringValue[B](state: State[Any])(implicit converter: Converter): Option[State[B]] =
-    matchRegEx("\"(.+?)\"", state).map(m => state.advance(m.group(0).length, converter.convert(m.group(1))))
+  private def stringValue(state: State[Any]): Option[State[Any]] =
+    matchRegEx("\"(.+?)\"", state).map(m => state.advance(m.group(0).length, m.group(1)))
 
   private def regExValue[B](pattern: String, result: String => B, state: State[Any]): Option[State[B]] =
     matchRegEx(pattern, state).map(m => state.advance(m.group(0).length, result(m.group(m.groupCount))))
 
-  private def matchRegEx[B](pattern: String, state: State[Any]): Option[Match] =
+  private def matchRegEx(pattern: String, state: State[Any]): Option[Match] =
     ("""^""" + pattern).r.findFirstMatchIn(state.json)
 
-  private def arr(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
+  private def arr(state: State[Any]): Option[State[List[Any]]] =
     emptyArray(state) orElse nonEmptyArray(state)
 
-  private def emptyArray(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
+  private def emptyArray(state: State[Any]): Option[State[List[Any]]] =
     regExValue("\\[\\]", _ => List(), state)
 
-  private def nonEmptyArray(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
-    symbol("[")(state) flatMap elements flatMap symbol("]")
+  private def nonEmptyArray(state: State[Any]): Option[State[List[Any]]] =
+    Some(state) flatMap symbol("[") flatMap elements flatMap symbol("]") map asList
 
-  private def elements(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
-    valueCommaThenElements(state) orElse value(state).map(s => s.mapData(d => List(d)))
+  private def elements(state: State[Any]): Option[State[Any]] =
+    valueCommaThenElements(state) orElse value(state)
 
-  private def valueCommaThenElements(state: State[Any])(implicit converter: Converter): Option[State[List[Any]]] =
-    for {
-      valueState <- value(state)
-      commaState <- symbol(",")(valueState)
-      elementsState <- elements(commaState)
-    } yield elementsState.mapData { valueState.data +: _ }
+  private def valueCommaThenElements(state: State[Any]): Option[State[Any]] =
+    Some(state) flatMap value flatMap ignoredSymbol(",") flatMap elements
 
-  private def obj(state: State[Any])(implicit converter: Converter): Option[State[Map[String, Any]]] =
+  private def obj(state: State[Any]): Option[State[Map[String, Any]]] =
     emptyObj(state) orElse nonEmptyObj(state)
 
-  private def emptyObj(state: State[Any])(implicit converter: Converter): Option[State[Map[String, Any]]] =
-    regExValue("\\{\\}", _ => Map(), state)
+  private def emptyObj(state: State[Any]): Option[State[Map[String, Any]]] =
+    regExValue("\\{\\}", _ => Map[String, Any](), state)
 
-  private def nonEmptyObj(state: State[Any])(implicit converter: Converter): Option[State[Map[String, Any]]] =
-    for {
-      openBracketState <- symbol("{")(state)
-      elementsState <- members(openBracketState)
-      closeBracketState <- symbol("}")(elementsState)
-    } yield closeBracketState.mapData { _.toMap }
+  private def nonEmptyObj(state: State[Any]): Option[State[Map[String, Any]]] =
+    Some(state) flatMap symbol("{") flatMap members flatMap symbol("}") map asMap
 
-  private def members(state: State[Any])(implicit converter: Converter): Option[State[List[(String, Any)]]] =
-    tupleCommaThenMembers(state) orElse tuple(state).map(s => s.mapData(d => List(d)))
+  private def members(state: State[Any]): Option[State[Any]] =
+    tupleCommaThenMembers(state) orElse tuple(state)
 
-  private def tupleCommaThenMembers(state: State[Any])(implicit converter: Converter): Option[State[List[(String, Any)]]] =
-    for {
-      valueState <- tuple(state)
-      commaState <- symbol(",")(valueState)
-      elementsState <- members(commaState)
-    } yield elementsState.mapData { valueState.data +: _ }
+  private def tupleCommaThenMembers(state: State[Any]): Option[State[Any]] =
+    tuple(state) flatMap ignoredSymbol(",") flatMap members
 
-  private def tuple(state: State[Any])(implicit converter: Converter): Option[State[(String, Any)]] =
-    for {
-      firstState <- stringValue[String](state)
-      colonState <- symbol(":")(firstState)
-      secondState <- value(colonState)(converter.withDefault(firstState.data))
-    } yield secondState.mapData(firstState.data -> _)
+  private def tuple(state: State[Any]): Option[State[Any]] =
+    Some(state) flatMap stringValue flatMap ignoredSymbol(":") flatMap value map asTuple
 
-  private def symbol[A](symbol: String)(state: State[A]): Option[State[A]] =
+  private def symbol(symbol: String)(state: State[Any]): Option[State[Any]] =
+    state.json.startsWith(symbol).option(state.advance(symbol.length, symbol))
+
+  private def ignoredSymbol(symbol: String)(state: State[Any]): Option[State[Any]] =
     state.json.startsWith(symbol).option(state.advance(symbol.length))
 
+  private def asTuple[A](state: State[Any]): State[(String, Any)] =
+    state.popTuple()
 
-  case class State[+T](private val jsonLeft: JsonString, data: T = null) {
+  private def asMap[A](state: State[Any]): State[Map[String, Any]] =
+    state.popTo("{").mapHead(a => a.asInstanceOf[List[(String, Any)]].toMap)
+
+  private def asList[A](state: State[Any]): State[List[Any]] =
+    state.popTo("[")
+
+  case class State[+T](private val jsonLeft: JsonString, stack: List[Any] = List()) {
     val json: JsonString = jsonLeft.replaceAll("^\\s+", "")
 
-    def advance(chars: Int) =
-      State(json.substring(chars), data)
+    def advance(chars: Int): State[T] =
+      State(json.substring(chars), stack)
 
-    def advance[U](chars: Int, newData: U) =
-      State(json.substring(chars), newData)
+    def advance[U](chars: Int, newData: U): State[U] =
+      State(json.substring(chars), newData :: stack)
 
-    def newData[U](newData: U) =
-      State(json, newData)
+    def push[U](newData: U): State[U] =
+      advance(0, newData)
 
-    def mapData[U](f: T => U) =
-      State(json, f(data))
-  }
+    def popTo(marker: Any): State[List[Any]] =
+      State(json, stack.drop(1).takeWhile(item => item != marker).reverse :: stack.dropWhile(item => item != marker).drop(1))
 
-  class Converter(converters: Map[String, String => Any] = Map(), defaultConverter: String => Any = _.toString) {
-    def convert[B](a: String): B = defaultConverter(a).asInstanceOf[B]
-    def withDefault(f: String => Any) = new Converter(converters, f)
-    def withDefault(key: String) = converters.contains(key) ? new Converter(converters, converters(key)) | this
+    def popTuple(marker: Any): State[(String, Any)] =
+      State(json, (stack.tail.head, stack.head) :: stack.drop(2))
+
+    def singleValue: T =
+      stack.head.asInstanceOf[T]
+
+    def mapHead[U](f: T => U): State[U] =
+      State(json, f(stack.head.asInstanceOf[T]) :: stack.tail)
   }
 }
 

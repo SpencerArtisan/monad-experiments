@@ -68,26 +68,51 @@ class JsonTest extends FunSpec with Inside with Matchers with MockitoSugar {
   }
 
   it("should parse empty json array") {
+    val json = Json.parse("[]")
+    json should be (Json(Some(List())))
+  }
+
+  it("should parse empty json array inside an object") {
     val json = Json.parse("""{"key":[]}""")
     json > "key" should be (Json(Some(List())))
   }
 
   it("should parse json array with empty object") {
+    val json = Json.parse("[{}]")
+    json should be (Json(Some(List(Map()))))
+  }
+
+  it("should parse json array with empty object inside an object") {
     val json = Json.parse("""{"key":[{}]}""")
     json > "key" should be (Json(Some(List(Map()))))
   }
 
   it("should parse json array with non-empty values") {
+    val json = Json.parse("[1]")
+    json should be (Json(Some(List(1))))
+  }
+
+  it("should parse json array with multiple non-empty values") {
+    val json = Json.parse("[1, 2, 3]")
+    json should be (Json(Some(List(1, 2, 3))))
+  }
+
+  it("should parse json array with non-empty values inside an object") {
     val json = Json.parse("""{"key":["1"]}""")
     json > "key" should be (Json(Some(List("1"))))
   }
 
-  it("should parse json array with multiple non-empty values") {
+  it("should parse json array with multiple non-empty values inside an object") {
     val json = Json.parse("""{"key":[1, 2, 3]}""")
     json > "key" should be (Json(Some(List(1, 2, 3))))
   }
 
   it("should parse json array with non-empty objects") {
+    val json = Json.parse("""[{"key2":"value"}]""")
+    json should be (Json(Some(List(Map("key2" -> "value")))))
+  }
+
+  it("should parse json nested array with non-empty objects") {
     val json = Json.parse("""{"key":[{"key2":"value"}]}""")
     json > "key" should be (Json(Some(List(Map("key2" -> "value")))))
   }
@@ -114,16 +139,16 @@ class JsonTest extends FunSpec with Inside with Matchers with MockitoSugar {
     json > "key2" should be (Json(Some("value2")))
     json > "key3" should be (Json(Some("value3")))
   }
-
-  it("should use a custom value converter") {
-    val json = Json.parse("""{"key":"42"}""")(new Converter(Map("key" -> ((s:String) => s.toInt))))
-    json > "key" should be (Json(Some(42)))
-  }
-
-  it("should use a custom value converter 2") {
-    val json = Json.parse("""{"key":"hello"}""")(new Converter(Map("key" -> ((s:String) => s.toUpperCase))))
-    json > "key" should be (Json(Some("HELLO")))
-  }
+//
+//  it("should use a custom value converter") {
+//    val json = Json.parse("""{"key":"42"}""")(new Converter(Map("key" -> ((s:String) => s.toInt))))
+//    json > "key" should be (Json(Some(42)))
+//  }
+//
+//  it("should use a custom value converter 2") {
+//    val json = Json.parse("""{"key":"hello"}""")(new Converter(Map("key" -> ((s:String) => s.toUpperCase))))
+//    json > "key" should be (Json(Some("HELLO")))
+//  }
 
   it("should handle complex json 1") {
     val json = testFromFile("example1.json")
