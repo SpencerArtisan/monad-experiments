@@ -2,7 +2,6 @@ package functional
 
 import scalaz._
 import Scalaz._
-import scala.util.matching.Regex.Match
 
 case class Json(private val data: Option[Any]) {
   def >(key: String): Json =
@@ -16,6 +15,11 @@ case class Json(private val data: Option[Any]) {
 
 object Json {
   implicit def jsonToOption[T](json: Json): Option[T] = json.data map { _.asInstanceOf[T] }
+  implicit def stateToOption[T](state: State[T]): Option[State[T]] = Option(state)
+  implicit class OptionPlus[A](o: Option[A]) {
+    def |[B >: A](alternative: => Option[B]): Option[B] =
+      o.orElse(alternative)
+  }
 
   def parse(jsonText: String): Json =
     Json(for {
@@ -24,22 +28,22 @@ object Json {
     } yield objState.value)
 
   private def value(state: State[Any]): Option[State[Any]] =
-    obj(state) orElse
-    arr(state) orElse
-    stringValue(state) orElse
-    booleanValue(state) orElse
-    doubleValue(state) orElse
-    intValue(state) orElse
+    obj(state) |
+    arr(state) |
+    stringValue(state) |
+    booleanValue(state) |
+    doubleValue(state) |
+    intValue(state) |
     nullValue(state)
 
   private def intValue(state: State[Any]): Option[State[Any]] =
-    regExValue("""-?\d+""", v => v.toString.toInt, state)
+    regExValue("""-?\d+""", _.toInt, state)
 
   private def doubleValue(state: State[Any]): Option[State[Any]] =
-    regExValue("""-?\d+\.\d+""", v => v.toString.toDouble, state)
+    regExValue("""-?\d+\.\d+""", _.toDouble, state)
 
   private def booleanValue(state: State[Any]): Option[State[Any]] =
-    trueValue(state) orElse falseValue(state)
+    trueValue(state) | falseValue(state)
 
   private def trueValue(state: State[Any]): Option[State[Any]] =
     regExValue("true", _ => true, state)
@@ -51,16 +55,10 @@ object Json {
     regExValue("null", _ => null, state)
 
   private def stringValue(state: State[Any]): Option[State[Any]] =
-    matchRegEx("\"(.+?)\"", state).map(m => state.advance(m.group(0).length, m.group(1)))
-
-  private def regExValue[B](pattern: String, result: String => B, state: State[Any]): Option[State[B]] =
-    matchRegEx(pattern, state).map(m => state.advance(m.group(0).length, result(m.group(m.groupCount))))
-
-  private def matchRegEx(pattern: String, state: State[Any]): Option[Match] =
-    ("""^""" + pattern).r.findFirstMatchIn(state.json)
+    regExValue("\"(.+?)\"", identity, state)
 
   private def arr(state: State[Any]): Option[State[List[Any]]] =
-    emptyArray(state) orElse nonEmptyArray(state)
+    emptyArray(state) | nonEmptyArray(state)
 
   private def emptyArray(state: State[Any]): Option[State[List[Any]]] =
     regExValue("\\[\\]", _ => List(), state)
@@ -69,22 +67,22 @@ object Json {
     Some(state) flatMap symbol("[") flatMap elements flatMap symbol("]") map asList
 
   private def elements(state: State[Any]): Option[State[Any]] =
-    valueCommaThenElements(state) orElse value(state)
+    valueCommaThenElements(state) | value(state)
 
   private def valueCommaThenElements(state: State[Any]): Option[State[Any]] =
     Some(state) flatMap value flatMap ignoredSymbol(",") flatMap elements
 
   private def obj(state: State[Any]): Option[State[Map[String, Any]]] =
-    emptyObj(state) orElse nonEmptyObj(state)
+    emptyObj(state) | nonEmptyObj(state)
 
   private def emptyObj(state: State[Any]): Option[State[Map[String, Any]]] =
     regExValue("\\{\\}", _ => Map[String, Any](), state)
 
   private def nonEmptyObj(state: State[Any]): Option[State[Map[String, Any]]] =
-    Some(state) flatMap symbol("{") flatMap members flatMap symbol("}") map asMap
+    state flatMap symbol("{") flatMap members flatMap symbol("}") map asMap
 
   private def members(state: State[Any]): Option[State[Any]] =
-    tupleCommaThenMembers(state) orElse tuple(state)
+    tupleCommaThenMembers(state) | tuple(state)
 
   private def tupleCommaThenMembers(state: State[Any]): Option[State[Any]] =
     tuple(state) flatMap ignoredSymbol(",") flatMap members
@@ -106,6 +104,10 @@ object Json {
 
   private def asList[A](state: State[Any]): State[List[Any]] =
     state.popTo("[")
+
+
+  private def regExValue[B](pattern: String, result: String => B, state: State[Any]): Option[State[B]] =
+    ("^" + pattern).r.findFirstMatchIn(state.json).map(m => state.advance(m.group(0).length, result(m.group(m.groupCount))))
 
   case class State[+T](private val jsonLeft: String, private val stack: List[Any] = List()) {
     val json: String = jsonLeft.replaceAll("^\\s+", "")
@@ -132,5 +134,4 @@ object Json {
       State(json, f(stack.head.asInstanceOf[T]) :: stack.tail)
   }
 }
-
 
