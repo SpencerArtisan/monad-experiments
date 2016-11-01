@@ -20,6 +20,7 @@ object Json {
 
   implicit def jsonToOption[T](json: Json): Option[T] = json.data map { _.asInstanceOf[T] }
   implicit def stateToOption[T](state: State[T]): Option[State[T]] = Option(state)
+
   implicit class OptionPlus[A](o: Option[A]) {
     def | [B >: A](alternative: => Option[B]): Option[B] = o.orElse(alternative)
     def andThen [B](f: A => Option[B]): Option[B] = o.flatMap[B](f)
@@ -50,63 +51,57 @@ object Json {
     trueValue(state) | falseValue(state)
 
   private def trueValue: Parser[Boolean] =
-    regExValue("true", _ => true)
+    constValue("true", _ => true)
 
   private def falseValue: Parser[Boolean] =
-    regExValue("false", _ => false)
+    constValue("false", _ => false)
 
   private def nullValue: Parser[Null] =
-    regExValue("null", _ => null)
+    constValue("null", _ => null)
 
   private def stringValue: Parser[String] =
     regExValue("\"(.+?)\"", identity)
 
-  private def constValue(value: String): Parser[String] =
-    regExValue(Pattern.quote(value), identity)
+  private def constValue[B](value: String, result: String => B): Parser[B] =
+    regExValue(Pattern.quote(value), result)
 
   private def arr: Parser[List[Any]] = (state) =>
     emptyArray(state) | nonEmptyArray(state)
 
   private def emptyArray: Parser[List[Any]] =
-    regExValue("\\[\\]", _ => List())
+    constValue("[]", _ => List())
 
   private def nonEmptyArray: Parser[List[Any]] =
-    _ is_= symbol("[") andThen elements andThen symbol("]") as list
+    _ >> symbol("[") andThen elements andThen symbol("]") as list
 
   private def elements: Parser[Any] = (state) =>
-    valueCommaThenElements(state) | value(state)
-
-  private def valueCommaThenElements: Parser[Any] =
-    _ is_= value andThen ignoredSymbol(",") andThen elements
+    (state >> value andThen ignore(",") andThen elements) | (state >> value)
 
   private def obj: Parser[Map[String, Any]] = (state) =>
-    emptyObj(state) | nonEmptyObj(state)
+    (state >> emptyObj) | (state >> nonEmptyObj)
 
   private def emptyObj: Parser[Map[String, Any]] =
-    regExValue("\\{\\}", _ => Map[String, Any]())
+    constValue("{}", _ => Map[String, Any]())
 
   private def nonEmptyObj: Parser[Map[String, Any]] =
-    _ is_= symbol("{") andThen members andThen symbol("}") map asMap
+    _ >> symbol("{") andThen members andThen symbol("}") as map
 
-  private def members(state: State[Any]): Option[State[Any]] =
-    tupleCommaThenMembers(state) | tuple(state)
-
-  private def tupleCommaThenMembers: Parser[Any] = (state) =>
-    tuple(state) andThen ignoredSymbol(",") andThen members
+  private def members: Parser[Any] = (state) =>
+    (tuple(state) andThen ignore(",") andThen members) | tuple(state)
 
   private def tuple: Parser[(String, Any)] =
-    _ is_= stringValue andThen ignoredSymbol(":") andThen value map asTuple
+    _ >> stringValue andThen ignore(":") andThen value as pair
 
   private def symbol(symbol: String): Parser[Any] =
-    _ is_= constValue(symbol)
+    _ >> constValue(symbol, identity)
 
-  private def ignoredSymbol(symbol: String): Parser[Any] = (state) =>
-    state.json.startsWith(symbol).option(state.advance(symbol.length))
+  private def ignore(symbol: String): Parser[Any] =
+    _ >> constValue(symbol, _ => null)
 
-  private def asTuple[A](state: State[Any]): State[(String, Any)] =
+  private def pair[A](state: State[Any]): State[(String, Any)] =
     state.popTuple()
 
-  private def asMap[A](state: State[Any]): State[Map[String, Any]] =
+  private def map[A](state: State[Any]): State[Map[String, Any]] =
     state.popTo("{").map(a => a.asInstanceOf[List[(String, Any)]].toMap)
 
   private def list[A](state: State[Any]): State[List[Any]] =
@@ -139,7 +134,7 @@ object Json {
     def map[U](f: T => U): State[U] =
       State(json, f(stack.head.asInstanceOf[T]) :: stack.tail)
 
-    def is_=(parser: Parser[_]) = Some(this) andThen parser
+    def >>[A](parser: Parser[A]):Option[State[A]] = Some(this) andThen parser
   }
 }
 
