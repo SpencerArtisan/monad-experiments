@@ -31,15 +31,15 @@ object Json {
     Json(Option(jsonText) map {State(_)} flatMap value map {_.data})
 
   private def value: Parser[Any] = (state) =>
-    obj(state) |
-    arr(state) |
-    stringValue(state) |
-    booleanValue(state) |
-    numberValue(state) |
-    nullValue(state)
+    state >> obj |
+    state >> arr |
+    state >> stringValue |
+    state >> booleanValue |
+    state >> numberValue |
+    state >> nullValue
 
   private def numberValue: Parser[AnyVal] = (state) =>
-    doubleValue(state) | intValue(state)
+    (state >> doubleValue) | (state >> intValue)
 
   private def intValue: Parser[Int] =
     regExValue("""-?\d+""", _.toInt)
@@ -48,7 +48,7 @@ object Json {
     regExValue("""-?\d+\.\d+""", _.toDouble)
 
   private def booleanValue: Parser[Boolean] = (state) =>
-    trueValue(state) | falseValue(state)
+    (state >> trueValue) | (state >> falseValue)
 
   private def trueValue: Parser[Boolean] =
     constValue("true", _ => true)
@@ -66,7 +66,7 @@ object Json {
     regExValue(Pattern.quote(value), result)
 
   private def arr: Parser[List[Any]] = (state) =>
-    emptyArray(state) | nonEmptyArray(state)
+    (state >> emptyArray) | (state >> nonEmptyArray)
 
   private def emptyArray: Parser[List[Any]] =
     constValue("[]", _ => List())
@@ -110,7 +110,7 @@ object Json {
   private def regExValue[B](pattern: String, result: String => B): Parser[B] = (state) =>
     ("^" + pattern).r.findFirstMatchIn(state.json).map(m => state.advance(m.group(0).length, result(m.group(m.groupCount))))
 
-  
+
   case class State[+T](private val jsonLeft: String, private val stack: List[Any] = List()) {
     val json: String = jsonLeft.replaceAll("^\\s+", "")
 
