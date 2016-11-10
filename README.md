@@ -27,14 +27,14 @@ json > [node name] > [sub node name]
 To access an element in an array
 
 ~~~~
-`json > [array node name] > [node index]
+json > [array node name] > [node index]
 ~~~~
 
 
 Notes
 --
 
-This implementation was written as a learning experiment with Scalaz. I'm not sure it's a sensible way to implement a parser, but I wanted to see if I could create a monadic functional parser without any mutable state. I also wanted to avoid the standard Abstract Syntax Tree method of parsing, not for any better reason than to see if I could. Ideally I would create a json parser with a close proximity to the json syntax definition on the (http://www.json.org) page.
+This implementation was written as a learning experiment with Scalaz. I don't know if it's a sensible way to implement a parser, but I wanted to see if I could create a monadic functional parser without any mutable state. I also wanted to avoid the standard Abstract Syntax Tree method of parsing, not for any better reason than to see if I could; I was aiming at code with a close proximity to the json syntax definition at http://www.json.org.
 
 Syntax definition:
 
@@ -90,8 +90,9 @@ private def elements: Parser[Any] = (state) =>
 Left To Do
 --
 
-Performance testing
-Yaml implementation
-Upload to maven central
+- Performance testing
+- Yaml implementation
+- Upload to maven central
+- Find a way to avoid having state as an explicit parameter. Applicative functors?
 
 
