@@ -1,7 +1,5 @@
 package functional
 
-import java.io.File
-
 import org.scalatest._
 import org.scalatest.mockito.MockitoSugar
 import functional.Json._

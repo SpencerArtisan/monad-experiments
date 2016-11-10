@@ -2,8 +2,7 @@ package functional
 
 import java.util.regex.Pattern
 
-import scalaz._
-import Scalaz._
+import scalaz.Scalaz._
 
 case class Json(private val data: Option[Any]) {
   def >(key: String): Json =
