@@ -1,4 +1,4 @@
-package functional
+package com.artisan.json
 
 import java.util.regex.Pattern
 

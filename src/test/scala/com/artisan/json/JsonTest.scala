@@ -1,8 +1,8 @@
-package functional
+package com.artisan.json
 
+import com.artisan.json.Json._
 import org.scalatest._
 import org.scalatest.mockito.MockitoSugar
-import functional.Json._
 
 import scala.io.Source
 
