@@ -96,5 +96,6 @@ Left To Do
 - Yaml implementation
 - Upload to maven central
 - Find a way to avoid having state as an explicit parameter. Applicative functors?
+- Remove order dependency in OR (|) clauses
 
 
