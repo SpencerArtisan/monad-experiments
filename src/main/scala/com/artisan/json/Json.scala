@@ -99,7 +99,6 @@ object Json {
   private def regExValue[B](pattern: String, result: String => B): Parser[B] = (state) =>
     ("^" + pattern).r.findFirstMatchIn(state.json).map(m => state.advance(m.group(0).length, result(m.group(m.groupCount))))
 
-
   private def pair(state: State[Any]): State[(String, Any)] =
     state.popTuple()
 
