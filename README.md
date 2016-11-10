@@ -5,6 +5,8 @@ written in Scala
 Usage
 --
 
+I'd recommend just copying the Json.scala file into your project.  It's only one file.
+
 To parse the json
 
 ~~~~
